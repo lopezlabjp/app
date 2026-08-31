@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>study_program — 今の科目</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #171c24;
+    --panel: #1f2733;
+    --panel-line: #313d4d;
+    --flap-bg: #0d1116;
+    --flap-edge: #05070a;
+    --amber: #ffb545;
+    --amber-dim: #7a5a2c;
+    --teal: #45c7b6;
+    --teal-dim: #234a45;
+    --ink: #eef1f4;
+    --ink-dim: #8b96a5;
+    --ink-faint: #566072;
+    --danger: #e3654f;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #202a38 0%, transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, #1c2a2a 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic New', 'Hiragino Sans', sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:32px 16px 60px;
+  }
+  .wrap{ width:100%; max-width:720px; }
+
+  /* header */
+  .eyebrow{
+    display:flex; align-items:baseline; justify-content:space-between;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px; letter-spacing:.14em; color:var(--ink-dim);
+    text-transform:uppercase; margin-bottom:10px;
+  }
+  .eyebrow .dot{ color:var(--teal); }
+  h1{
+    font-family:'Archivo Black', sans-serif;
+    font-size:clamp(22px, 5vw, 30px);
+    letter-spacing:.01em;
+    margin:0 0 26px;
+    color:var(--ink);
+  }
+  h1 span{ color:var(--teal); }
+
+  /* status line */
+  .statusline{
+    display:flex; align-items:center; gap:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px; color:var(--ink-faint);
+    margin-bottom:14px;
+  }
+  .statusline .led{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--ink-faint);
+    box-shadow:0 0 0 rgba(0,0,0,0);
+  }
+  .statusline .led.live{ background:var(--teal); box-shadow:0 0 8px var(--teal); }
+  .statusline .led.err{ background:var(--danger); box-shadow:0 0 8px var(--danger); }
+  .statusline button{
+    margin-left:auto;
+    background:transparent; border:1px solid var(--panel-line); color:var(--ink-dim);
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.06em;
+    padding:5px 10px; border-radius:5px; cursor:pointer;
+  }
+  .statusline button:hover{ color:var(--ink); border-color:var(--ink-dim); }
+  .statusline button:focus-visible, a:focus-visible, .slot:focus-visible{
+    outline:2px solid var(--teal); outline-offset:2px;
+  }
+
+  /* split-flap board — the signature element */
+  .board{
+    background:linear-gradient(180deg, #232c39, #1a212b);
+    border:1px solid var(--panel-line);
+    border-radius:14px;
+    padding:22px;
+    box-shadow: 0 24px 50px -24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.03);
+    margin-bottom:22px;
+  }
+  .board-top{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    color:var(--ink-faint); letter-spacing:.1em; text-transform:uppercase;
+    margin-bottom:14px;
+  }
+  .board-top .range{ color:var(--ink-dim); }
+
+  .flaps{
+    display:flex;
+    gap:6px;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  .flap{
+    position:relative;
+    background:var(--flap-bg);
+    border:1px solid var(--flap-edge);
+    border-radius:6px;
+    width:52px; height:72px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.02), 0 2px 0 rgba(0,0,0,.4);
+    overflow:hidden;
+  }
+  .flap::after{
+    content:''; position:absolute; left:0; right:0; top:50%;
+    height:1px; background:rgba(0,0,0,.55);
+  }
+  .flap .ch{
+    font-family:'Archivo Black', sans-serif;
+    font-size:34px; color:var(--amber);
+    text-shadow:0 0 14px rgba(255,181,69,.35);
+    transition: opacity .15s ease;
+  }
+  .flap.blank .ch{ opacity:.15; }
+  @media (max-width:480px){
+    .flap{ width:38px; height:54px; }
+    .flap .ch{ font-size:24px; }
+  }
+
+  .board-sub{
+    text-align:center; margin-top:16px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px; color:var(--ink-dim);
+    letter-spacing:.03em;
+  }
+  .board-sub strong{ color:var(--teal); font-weight:600; }
+
+  /* timeline of today's slots */
+  .timeline-nav{
+    display:flex; align-items:center; gap:10px;
+    margin:6px 0 10px 2px;
+  }
+  .timeline-nav .navbtn{
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+    background:transparent; border:1px solid var(--panel-line); color:var(--ink-dim);
+    width:28px; height:28px; border-radius:6px; cursor:pointer; flex-shrink:0;
+  }
+  .timeline-nav .navbtn:hover{ color:var(--ink); border-color:var(--ink-dim); }
+  .timeline-label{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--ink-faint); flex-grow:1;
+  }
+  .timeline-nav .todayjump{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; letter-spacing:.06em;
+    background:transparent; border:1px solid var(--teal-dim); color:var(--teal);
+    padding:4px 10px; border-radius:20px; cursor:pointer; flex-shrink:0;
+  }
+  .timeline-nav .todayjump:hover{ background:rgba(69,199,182,.08); }
+  .timeline{
+    display:flex; flex-direction:column; gap:8px; margin-bottom:22px;
+  }
+  .slot{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:10px;
+    padding:12px 14px;
+  }
+  .slot .time{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--ink-dim);
+    width:98px; flex-shrink:0;
+  }
+  .slot .subj{
+    font-weight:700; font-size:15px; color:var(--ink);
+    flex-grow:1;
+  }
+  .slot .tag{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px;
+    letter-spacing:.08em; text-transform:uppercase;
+    padding:3px 8px; border-radius:20px;
+    color:var(--ink-faint); border:1px solid var(--panel-line);
+  }
+  .slot.now{
+    border-color:var(--teal-dim);
+    background:linear-gradient(90deg, rgba(69,199,182,.10), rgba(69,199,182,.02));
+  }
+  .slot.now .time{ color:var(--teal); }
+  .slot.now .subj{ color:var(--teal); }
+  .slot.now .tag{ color:var(--teal); border-color:var(--teal-dim); background:rgba(69,199,182,.08); }
+  .slot.past{ opacity:.42; }
+  .slot.past .subj{ font-weight:500; }
+  .slot .checkin{
+    flex-basis:100%;
+    display:flex; align-items:center; gap:10px;
+    padding-top:10px; margin-top:2px;
+    border-top:1px dashed var(--panel-line);
+  }
+  .slot.past .checkin{ opacity:1; } /* keep checkin legible even when slot is dimmed */
+  .checkin-thumb{
+    width:34px; height:34px; border-radius:7px; overflow:hidden;
+    padding:0; border:1px solid var(--panel-line); cursor:pointer; flex-shrink:0;
+    background:var(--flap-bg);
+  }
+  .checkin-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .checkin-label{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; letter-spacing:.02em;
+  }
+  .checkin-label.match{ color:var(--teal); }
+  .checkin-label.mismatch{ color:var(--danger); }
+
+  .footnote{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-faint);
+    text-align:center; line-height:1.7;
+  }
+  .footnote a{ color:var(--ink-dim); }
+
+  /* photo check-in */
+  .photo-label{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--ink-faint); margin:6px 0 10px 2px;
+  }
+  .photo-card{
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:12px;
+    padding:16px;
+    margin-bottom:22px;
+  }
+  .photo-row{
+    display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap;
+  }
+  .photo-dropzone{
+    width:120px; height:120px; flex-shrink:0;
+    border:1.5px dashed var(--panel-line);
+    border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--flap-bg);
+    cursor:pointer;
+    overflow:hidden;
+    position:relative;
+  }
+  .photo-dropzone:hover{ border-color:var(--teal-dim); }
+  .photo-dropzone img{ width:100%; height:100%; object-fit:cover; }
+  .photo-dropzone .hint{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-faint);
+    text-align:center; padding:8px; line-height:1.5;
+  }
+  .photo-dropzone input{
+    position:absolute; inset:0; opacity:0; cursor:pointer;
+  }
+  .photo-actions{
+    flex-grow:1; min-width:200px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .photo-actions .btnrow{ display:flex; gap:10px; flex-wrap:wrap; }
+  .photo-actions button{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.05em;
+    padding:9px 16px; border-radius:7px; cursor:pointer;
+    border:1px solid var(--panel-line);
+    background:transparent; color:var(--ink-dim);
+  }
+  .photo-actions button.primary{
+    background:var(--teal); border-color:var(--teal); color:#0d1116; font-weight:600;
+  }
+  .photo-actions button:disabled{
+    opacity:.4; cursor:not-allowed;
+  }
+  .photo-actions button:not(:disabled):hover{ filter:brightness(1.1); }
+
+  .apikey-row{
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+    padding-bottom:12px; margin-bottom:12px;
+    border-bottom:1px dashed var(--panel-line);
+  }
+  .apikey-row input{
+    flex:1; min-width:180px;
+    background:var(--flap-bg); border:1px solid var(--panel-line); color:var(--ink);
+    font-family:'IBM Plex Mono', monospace; font-size:12px;
+    padding:8px 10px; border-radius:7px;
+  }
+  .apikey-row input:focus{ outline:1px solid var(--teal-dim); }
+  .apikey-note{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-faint);
+    line-height:1.6; margin:-4px 0 12px;
+  }
+  .apikey-status{ font-family:'IBM Plex Mono', monospace; font-size:11px; }
+  .apikey-status.set{ color:var(--teal); }
+  .apikey-status.unset{ color:var(--ink-faint); }
+
+  .result-box{
+    border-radius:8px; padding:12px 14px;
+    font-size:13.5px; line-height:1.6;
+    background:var(--flap-bg); border:1px solid var(--panel-line);
+    min-height:20px;
+  }
+  .result-box .subj-detect{
+    font-family:'Archivo Black', sans-serif; font-size:18px; color:var(--amber);
+    margin-right:8px;
+  }
+  .result-box .match{ color:var(--teal); font-family:'IBM Plex Mono', monospace; font-size:12px; }
+  .result-box .mismatch{ color:var(--danger); font-family:'IBM Plex Mono', monospace; font-size:12px; }
+  .result-box .muted{ color:var(--ink-faint); font-family:'IBM Plex Mono', monospace; font-size:12px; }
+
+  .errbox{
+    border:1px solid #4a2f2a; background:#241715; color:#e8b6ab;
+    border-radius:10px; padding:14px 16px; font-size:13px; line-height:1.6;
+    margin-bottom:20px; font-family:'IBM Plex Mono', monospace;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .flap .ch{ transition:none; }
+  }
+
+  /* image lightbox */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(6,8,11,.82);
+    display:none; align-items:center; justify-content:center;
+    padding:32px; z-index:100;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-content{ position:relative; max-width:90vw; max-height:85vh; }
+  .modal-content img{
+    max-width:90vw; max-height:85vh; display:block;
+    border-radius:10px; box-shadow:0 24px 60px rgba(0,0,0,.5);
+  }
+  .modal-close{
+    position:absolute; top:-38px; right:0;
+    background:none; border:none; color:var(--ink);
+    font-size:22px; line-height:1; cursor:pointer;
+  }
+  .modal-close:hover{ color:var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">
+    <span>study_program <span class="dot">・</span> schedule board</span>
+    <span id="clock">--:--:--</span>
+  </div>
+  <h1>今、勉強すべき<span>科目</span></h1>
+
+  <div class="statusline">
+    <span class="led" id="led"></span>
+    <span id="statusText">読み込み中…</span>
+    <button id="refreshBtn">再読み込み</button>
+  </div>
+
+  <div id="errArea"></div>
+
+  <div class="board">
+    <div class="board-top">
+      <span id="todayLabel">――</span>
+      <span class="range" id="slotRange">――</span>
+    </div>
+    <div class="flaps" id="flaps"></div>
+    <div class="board-sub" id="boardSub">データを取得しています…</div>
+  </div>
+
+  <div class="timeline-nav">
+    <button class="navbtn" id="prevDayBtn" aria-label="前日">◀</button>
+    <div class="timeline-label" id="timelineLabel">本日のタイムテーブル</div>
+    <button class="todayjump" id="todayJumpBtn" style="display:none;">今日に戻る</button>
+    <button class="navbtn" id="nextDayBtn" aria-label="翌日">▶</button>
+  </div>
+  <div class="timeline" id="timeline"></div>
+
+  <div class="photo-label">写真から科目を判定</div>
+  <div class="photo-card">
+    <div class="apikey-row">
+      <input type="password" id="apiKeyInput" placeholder="Anthropic APIキー（このファイルを単体で開いている場合のみ入力）" autocomplete="off">
+      <input type="text" id="workspaceIdInput" placeholder="ワークスペースID（wrkspc_...／必要な場合のみ）" autocomplete="off" style="flex:1;min-width:180px;background:var(--flap-bg);border:1px solid var(--panel-line);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:8px 10px;border-radius:7px;">
+      <button id="apiKeySaveBtn" style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:8px 14px;border-radius:7px;border:1px solid var(--panel-line);background:transparent;color:var(--ink-dim);cursor:pointer;">適用</button>
+      <span class="apikey-status unset" id="apiKeyStatus">未設定</span>
+    </div>
+    <div class="apikey-note">
+      Claude.aiのチャット画面内でこのアプリを見ている場合は入力不要です。それ以外の場所（GitHub Pagesなど）で開いている場合は、ご自身のAnthropic APIキーを入力してください（<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--ink-dim)">console.anthropic.com</a>で発行）。キーとワークスペースID、判定履歴は<strong>このブラウザだけ</strong>に保存され（localStorage）、どこにも送信されません。共有パソコンの場合は使用後にこの欄をクリアすることをおすすめします。
+    </div>
+    <div class="photo-row">
+      <label class="photo-dropzone" id="dropzone">
+        <span class="hint" id="dropzoneHint">タップして<br>写真を選択</span>
+        <img id="previewImg" style="display:none;" alt="アップロードした写真のプレビュー">
+        <input type="file" accept="image/*" id="photoInput">
+      </label>
+      <div class="photo-actions">
+        <div class="btnrow">
+          <button class="primary" id="classifyBtn" disabled>この写真の科目を判定する</button>
+          <button id="clearBtn" disabled>クリア</button>
+        </div>
+        <div class="result-box" id="resultBox">
+          <span class="muted">ノートや教材の写真をアップロードすると、何の科目の勉強か自動で判定します。</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    5分ごとに自動更新 ・ シート:
+    <a href="https://docs.google.com/spreadsheets/d/1yQTcRqMxx8st8qNncosDy78Ae2LeypsDHOL8tsCWHl0/edit" target="_blank" rel="noopener">study_program</a>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="imgModal">
+  <div class="modal-content">
+    <button class="modal-close" id="modalClose" aria-label="閉じる">✕</button>
+    <img id="modalImg" alt="アップロードした写真">
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1yQTcRqMxx8st8qNncosDy78Ae2LeypsDHOL8tsCWHl0';
+const GID = '0';
+
+// column indices (0-based, A=0) -> time slot
+const SLOTS = [
+  { label:'9:00-11:00',  start:9,  end:11, col:1  },
+  { label:'11:00-13:00', start:11, end:13, col:3  },
+  { label:'14:00-16:00', start:14, end:16, col:6  },
+  { label:'16:00-18:00', start:16, end:18, col:8  },
+  { label:'18:00-20:00', start:18, end:20, col:10 },
+  { label:'21:00-23:00', start:21, end:23, col:13 },
+];
+
+let sheetRows = null; // array of arrays of cell values (excluding header row)
+let fetchAttempt = 0;
+let viewDate = new Date();          // which date's schedule the timeline is showing
+const checkins = {};                // key: "M/D_slotIndex" -> { subject, imageDataUrl, match }
+
+function dateKey(date){
+  return (date.getMonth()+1) + '/' + date.getDate();
+}
+function isSameDay(a, b){
+  return a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function setStatus(text, mode){
+  document.getElementById('statusText').textContent = text;
+  const led = document.getElementById('led');
+  led.className = 'led' + (mode === 'live' ? ' live' : mode === 'err' ? ' err' : '');
+}
+
+function showError(msg){
+  document.getElementById('errArea').innerHTML =
+    '<div class="errbox">読み込みエラー：' + msg + '<br>シートの共有設定が「リンクを知っている全員が閲覧可」になっているか確認してください。</div>';
+}
+function clearError(){
+  document.getElementById('errArea').innerHTML = '';
+}
+
+function loadSheet(onDone){
+  fetchAttempt++;
+  const cbName = '__gvizCb_' + fetchAttempt;
+  const timeout = setTimeout(() => {
+    if (window[cbName]) {
+      delete window[cbName];
+      onDone(null, 'タイムアウトしました');
+    }
+  }, 10000);
+
+  window[cbName] = function(json){
+    clearTimeout(timeout);
+    delete window[cbName];
+    try {
+      // Prefer the formatted display value (f) over the raw value (v).
+      // Date-typed cells (like column A: 8/29(土)) come back from gviz as a
+      // raw "Date(2026,7,29)" string in v, but the human-readable text is in f.
+      const cellText = (cell) => {
+        if (!cell) return null;
+        if (cell.f !== undefined && cell.f !== null && cell.f !== '') return cell.f;
+        return cell.v;
+      };
+      const rows = json.table.rows.map(r => r.c.map(cellText));
+      // first row is the header row (曜日, 9:00-11:00, ...) — drop it
+      const dataRows = rows.slice(1).filter(r => r[0]); // keep rows that have a date in col A
+      onDone(dataRows, null);
+    } catch (e) {
+      onDone(null, 'データの形式を解析できませんでした');
+    }
+  };
+
+  const script = document.createElement('script');
+  script.src = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID +
+    '/gviz/tq?tqx=out:json;responseHandler:' + cbName + '&gid=' + GID + '&headers=0';
+  script.onerror = function(){
+    clearTimeout(timeout);
+    delete window[cbName];
+    onDone(null, 'シートに接続できませんでした');
+  };
+  document.body.appendChild(script);
+  setTimeout(() => { if (script.parentNode) script.parentNode.removeChild(script); }, 12000);
+}
+
+function findTodayRow(rows, now){
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  for (const row of rows){
+    const cell = String(row[0] || '').trim();
+    const match = cell.match(/(\d{1,2})\s*\/\s*(\d{1,2})/);
+    if (match && parseInt(match[1],10) === m && parseInt(match[2],10) === d){
+      return row;
+    }
+  }
+  return null;
+}
+
+function currentSlotIndex(now){
+  const h = now.getHours() + now.getMinutes()/60;
+  for (let i=0; i<SLOTS.length; i++){
+    if (h >= SLOTS[i].start && h < SLOTS[i].end) return i;
+  }
+  return -1;
+}
+
+function nextSlotInfo(now){
+  const h = now.getHours() + now.getMinutes()/60;
+  for (const s of SLOTS){
+    if (h < s.start) return s;
+  }
+  return null; // nothing left today
+}
+
+function renderFlaps(text){
+  const flapsEl = document.getElementById('flaps');
+  flapsEl.innerHTML = '';
+  const chars = text.split('');
+  chars.forEach(ch => {
+    const div = document.createElement('div');
+    div.className = 'flap' + (ch === ' ' ? ' blank' : '');
+    const span = document.createElement('span');
+    span.className = 'ch';
+    span.textContent = ch === ' ' ? '' : ch;
+    div.appendChild(span);
+    flapsEl.appendChild(div);
+  });
+}
+
+function weekdayLabel(now){
+  const days = ['日','月','火','水','木','金','土'];
+  return (now.getMonth()+1) + '/' + now.getDate() + '(' + days[now.getDay()] + ')';
+}
+
+function render(){
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    String(now.getHours()).padStart(2,'0') + ':' +
+    String(now.getMinutes()).padStart(2,'0') + ':' +
+    String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('todayLabel').textContent = weekdayLabel(now);
+
+  if (!sheetRows){
+    return;
+  }
+
+  renderBoard(now);
+  renderTimeline(now);
+}
+
+function renderBoard(now){
+  const row = findTodayRow(sheetRows, now);
+  const idx = currentSlotIndex(now);
+
+  if (!row){
+    renderFlaps('データなし');
+    document.getElementById('boardSub').innerHTML = '本日の日付がシートに見つかりませんでした';
+    document.getElementById('slotRange').textContent = '――';
+    return;
+  }
+
+  if (idx === -1){
+    const nxt = nextSlotInfo(now);
+    renderFlaps('学習時間外');
+    document.getElementById('slotRange').textContent = '――';
+    if (nxt){
+      const subj = row[nxt.col] || '未設定';
+      document.getElementById('boardSub').innerHTML =
+        '次のコマ ' + nxt.label + ' は <strong>' + escapeHtml(subj) + '</strong>';
+    } else {
+      document.getElementById('boardSub').textContent = '本日のコマはすべて終了しました';
+    }
+  } else {
+    const slot = SLOTS[idx];
+    const subj = row[slot.col] || '未設定';
+    renderFlaps(subj);
+    document.getElementById('slotRange').textContent = slot.label;
+    document.getElementById('boardSub').innerHTML = '現在のコマの科目です';
+  }
+}
+
+function renderTimeline(now){
+  const tl = document.getElementById('timeline');
+  const label = document.getElementById('timelineLabel');
+  const todayJumpBtn = document.getElementById('todayJumpBtn');
+  const today = isSameDay(viewDate, now);
+
+  label.textContent = today ? '本日のタイムテーブル' : weekdayLabel(viewDate) + ' のタイムテーブル';
+  todayJumpBtn.style.display = today ? 'none' : 'inline-block';
+
+  const row = findTodayRow(sheetRows, viewDate);
+  tl.innerHTML = '';
+
+  if (!row){
+    const msg = document.createElement('div');
+    msg.className = 'footnote';
+    msg.style.textAlign = 'left';
+    msg.textContent = 'この日のデータはシートに見つかりませんでした';
+    tl.appendChild(msg);
+    return;
+  }
+
+  const idx = today ? currentSlotIndex(now) : -1;
+  const key = dateKey(viewDate);
+
+  SLOTS.forEach((slot, i) => {
+    const subj = row[slot.col] || '―';
+    const div = document.createElement('div');
+    let cls = 'slot';
+    let tag = '';
+    if (today){
+      if (i === idx){ cls += ' now'; tag = 'NOW'; }
+      else if (now.getHours()+now.getMinutes()/60 >= slot.end){ cls += ' past'; tag = '終了'; }
+      else { tag = '予定'; }
+    }
+
+    let checkinHtml = '';
+    const c = checkins[key + '_' + i];
+    if (c){
+      checkinHtml =
+        '<div class="checkin">' +
+          '<button class="checkin-thumb" data-src="' + c.imageDataUrl + '" aria-label="アップロードした写真を表示">' +
+            '<img src="' + c.imageDataUrl + '" alt=""></button>' +
+          '<span class="checkin-label ' + (c.match ? 'match' : 'mismatch') + '">' +
+            '判定: ' + escapeHtml(c.subject) + (c.match ? ' ✓' : ' ⚠') +
+          '</span>' +
+        '</div>';
+    }
+
+    div.className = cls;
+    div.tabIndex = 0;
+    div.innerHTML =
+      '<span class="time">' + slot.label + '</span>' +
+      '<span class="subj">' + escapeHtml(subj) + '</span>' +
+      (tag ? '<span class="tag">' + tag + '</span>' : '') +
+      checkinHtml;
+    tl.appendChild(div);
+  });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function fetchAndRender(){
+  setStatus('シートを読み込み中…');
+  clearError();
+  loadSheet((rows, err) => {
+    if (err){
+      setStatus('接続エラー', 'err');
+      showError(err);
+      return;
+    }
+    sheetRows = rows;
+    setStatus('接続中・最終更新 ' + new Date().toLocaleTimeString('ja-JP'), 'live');
+    render();
+  });
+}
+
+document.getElementById('refreshBtn').addEventListener('click', fetchAndRender);
+
+/* ---------- timeline date navigation ---------- */
+document.getElementById('prevDayBtn').addEventListener('click', () => {
+  viewDate = new Date(viewDate);
+  viewDate.setDate(viewDate.getDate() - 1);
+  render();
+});
+document.getElementById('nextDayBtn').addEventListener('click', () => {
+  viewDate = new Date(viewDate);
+  viewDate.setDate(viewDate.getDate() + 1);
+  render();
+});
+document.getElementById('todayJumpBtn').addEventListener('click', () => {
+  viewDate = new Date();
+  render();
+});
+
+/* ---------- image lightbox ---------- */
+const imgModal   = document.getElementById('imgModal');
+const modalImg   = document.getElementById('modalImg');
+const modalClose = document.getElementById('modalClose');
+
+function openModal(src){
+  modalImg.src = src;
+  imgModal.classList.add('open');
+}
+function closeModal(){
+  imgModal.classList.remove('open');
+  modalImg.src = '';
+}
+modalClose.addEventListener('click', closeModal);
+imgModal.addEventListener('click', (e) => { if (e.target === imgModal) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+// event delegation: any checkin thumbnail inside the timeline opens the modal
+document.getElementById('timeline').addEventListener('click', (e) => {
+  const btn = e.target.closest('.checkin-thumb');
+  if (btn) openModal(btn.dataset.src);
+});
+
+/* ---------- photo upload & subject classification ---------- */
+let uploadedImage = null; // { base64, mediaType }
+let userApiKey = '';      // only used when this file is opened standalone (outside claude.ai)
+let userWorkspaceId = ''; // optional, only needed for identity-linked API keys
+
+const apiKeyInput  = document.getElementById('apiKeyInput');
+const workspaceIdInput = document.getElementById('workspaceIdInput');
+const apiKeyStatus = document.getElementById('apiKeyStatus');
+const LS_KEY_APIKEY = 'study_program_api_key';
+const LS_KEY_WORKSPACE = 'study_program_workspace_id';
+const LS_KEY_CHECKINS = 'study_program_checkins';
+
+apiKeyStatus.textContent = '未設定';
+apiKeyStatus.className = 'apikey-status unset';
+document.getElementById('apiKeySaveBtn').addEventListener('click', () => {
+  userApiKey = apiKeyInput.value.trim();
+  userWorkspaceId = workspaceIdInput.value.trim();
+  if (userApiKey){
+    apiKeyStatus.textContent = '設定済み' + (userWorkspaceId ? '（ワークスペース指定あり）' : '');
+    apiKeyStatus.className = 'apikey-status set';
+  } else {
+    apiKeyStatus.textContent = '未設定';
+    apiKeyStatus.className = 'apikey-status unset';
+  }
+  // Persist to this browser's localStorage only — never sent to any server
+  // of ours. Each visitor's key/history stays on their own device.
+  try {
+    if (userApiKey) localStorage.setItem(LS_KEY_APIKEY, userApiKey); else localStorage.removeItem(LS_KEY_APIKEY);
+    if (userWorkspaceId) localStorage.setItem(LS_KEY_WORKSPACE, userWorkspaceId); else localStorage.removeItem(LS_KEY_WORKSPACE);
+  } catch (e) { /* storage unavailable (e.g. private browsing) — ignore */ }
+});
+
+// On load: restore a previously-saved key/workspace and check-in history
+// from this browser's localStorage, if any.
+(function restoreFromLocalStorage(){
+  try {
+    const savedKey = localStorage.getItem(LS_KEY_APIKEY);
+    const savedWs  = localStorage.getItem(LS_KEY_WORKSPACE);
+    if (savedKey){
+      userApiKey = savedKey;
+      userWorkspaceId = savedWs || '';
+      apiKeyInput.value = userApiKey;
+      workspaceIdInput.value = userWorkspaceId;
+      apiKeyStatus.textContent = '設定済み（保存済みの値を読み込みました）';
+      apiKeyStatus.className = 'apikey-status set';
+    }
+  } catch (e) { /* storage unavailable — ignore */ }
+
+  try {
+    const savedCheckins = localStorage.getItem(LS_KEY_CHECKINS);
+    if (savedCheckins){
+      Object.assign(checkins, JSON.parse(savedCheckins));
+      render();
+    }
+  } catch (e) { /* storage unavailable or corrupt — ignore */ }
+})();
+
+const photoInput   = document.getElementById('photoInput');
+const previewImg   = document.getElementById('previewImg');
+const dropzoneHint = document.getElementById('dropzoneHint');
+const classifyBtn  = document.getElementById('classifyBtn');
+const clearBtn     = document.getElementById('clearBtn');
+const resultBox    = document.getElementById('resultBox');
+
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(new Error('画像の読み込みに失敗しました'));
+    reader.readAsDataURL(file);
+  });
+}
+
+photoInput.addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!file.type.startsWith('image/')){
+    resultBox.innerHTML = '<span class="mismatch">画像ファイルを選択してください。</span>';
+    return;
+  }
+  if (!SUPPORTED_TYPES.includes(file.type)){
+    resultBox.innerHTML = '<span class="mismatch">この画像形式（' + escapeHtml(file.type || '不明') + '）には対応していません。JPEG・PNG・GIF・WebPのいずれかでお試しください（iPhoneのHEIC写真は「共有」→「画像を圧縮」や設定で「互換性優先」にするとJPEGで保存できます）。</span>';
+    return;
+  }
+  try {
+    const base64 = await fileToBase64(file);
+    uploadedImage = { base64, mediaType: file.type };
+    previewImg.src = 'data:' + file.type + ';base64,' + base64;
+    previewImg.style.display = 'block';
+    dropzoneHint.style.display = 'none';
+    classifyBtn.disabled = false;
+    clearBtn.disabled = false;
+    resultBox.innerHTML = '<span class="muted">「この写真の科目を判定する」を押してください。</span>';
+  } catch (err){
+    resultBox.innerHTML = '<span class="mismatch">' + escapeHtml(err.message) + '</span>';
+  }
+});
+
+clearBtn.addEventListener('click', () => {
+  uploadedImage = null;
+  photoInput.value = '';
+  previewImg.style.display = 'none';
+  previewImg.src = '';
+  dropzoneHint.style.display = 'block';
+  classifyBtn.disabled = true;
+  clearBtn.disabled = true;
+  resultBox.innerHTML = '<span class="muted">ノートや教材の写真をアップロードすると、何の科目の勉強か自動で判定します。</span>';
+});
+
+function currentScheduledSubject(){
+  if (!sheetRows) return null;
+  const now = new Date();
+  const row = findTodayRow(sheetRows, now);
+  if (!row) return null;
+  const key = dateKey(now);
+
+  const idx = currentSlotIndex(now);
+  if (idx !== -1){
+    return { subject: row[SLOTS[idx].col] || null, label: SLOTS[idx].label, status: 'current', slotIndex: idx, dateKey: key };
+  }
+
+  // outside all time slots: fall back to the most recently ended slot,
+  // or, if it's before the first slot of the day, the upcoming one.
+  const h = now.getHours() + now.getMinutes()/60;
+  let lastPastIdx = -1;
+  SLOTS.forEach((slot, i) => { if (h >= slot.end) lastPastIdx = i; });
+  if (lastPastIdx !== -1){
+    const slot = SLOTS[lastPastIdx];
+    return { subject: row[slot.col] || null, label: slot.label, status: 'past', slotIndex: lastPastIdx, dateKey: key };
+  }
+  const upcomingIdx = SLOTS.findIndex(slot => h < slot.start);
+  if (upcomingIdx !== -1){
+    const slot = SLOTS[upcomingIdx];
+    return { subject: row[slot.col] || null, label: slot.label, status: 'upcoming', slotIndex: upcomingIdx, dateKey: key };
+  }
+  return null;
+}
+
+async function classifyImage(base64, mediaType){
+  const SUBJECTS = ['数学', '情報', '物理', '化学', '国語', '英語', '歴史・地理・公民'];
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (userApiKey){
+    // Needed only when a visitor has supplied their own key (this page is
+    // static — there is no backend of ours in between). This header enables
+    // direct browser calls to the Anthropic API from a real https:// origin.
+    headers['x-api-key'] = userApiKey;
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+    if (userWorkspaceId){
+      headers['anthropic-workspace-id'] = userWorkspaceId;
+    }
+  }
+
+  let response;
+  try {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 100,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+              {
+                type: 'text',
+                text: 'この画像にはノートや教材、教科書、問題集などが写っています。写っている内容から、何の科目を勉強しているところか判定してください。' +
+                      '必ず次の7つの科目のうち、最も当てはまるものを一つだけ選んで、その科目名だけを出力してください（他の科目名や説明・記号・句読点は一切出力しないでください）。' +
+                      '\n\n候補: ' + SUBJECTS.join('、') +
+                      '\n\n地理・歴史・公民のいずれかであれば「歴史・地理・公民」と出力してください。'
+              }
+            ]
+          }
+        ]
+      })
+    });
+  } catch (networkErr){
+    throw new Error('APIに接続できませんでした。APIキーが正しく貼り付けられているか確認してください。広告ブロッカーや拡張機能がapi.anthropic.comへの通信をブロックしている場合もあります。');
+  }
+
+  if (!response.ok){
+    let detail = '';
+    try {
+      const errJson = await response.json();
+      detail = errJson && errJson.error && errJson.error.message ? errJson.error.message : '';
+    } catch (e) { /* response body wasn't JSON */ }
+
+    if (response.status === 401){
+      throw new Error('APIキーが無効です。入力内容を確認してください。' + (detail ? '（' + detail + '）' : ''));
+    }
+    if (response.status === 400){
+      if (detail && detail.indexOf('workspace') !== -1){
+        throw new Error('このAPIキーはワークスペース指定が必要です。上のワークスペースID欄にIDを入力してから再度お試しください。（' + detail + '）');
+      }
+      throw new Error('リクエストが不正です' + (detail ? '：' + detail : '') +
+        '。iPhoneのHEIC形式の写真の場合、JPEGやPNGに変換してから再度お試しください。');
+    }
+    throw new Error('APIリクエストに失敗しました（' + response.status + '）' + (detail ? '：' + detail : ''));
+  }
+  const data = await response.json();
+  const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
+  let result = textBlocks.join('').trim();
+  if (!result) throw new Error('判定結果を取得できませんでした');
+
+  // normalize to the closest match from the fixed list, in case of stray whitespace/punctuation
+  const cleaned = result.replace(/[。.\s]/g, '');
+  const exact = SUBJECTS.find(s => s.replace(/[・]/g,'') === cleaned.replace(/[・]/g,''));
+  return exact || result;
+}
+
+classifyBtn.addEventListener('click', async () => {
+  if (!uploadedImage) return;
+  classifyBtn.disabled = true;
+  classifyBtn.textContent = '判定中…';
+  resultBox.innerHTML = '<span class="muted">画像を解析しています…</span>';
+  try {
+    const detected = await classifyImage(uploadedImage.base64, uploadedImage.mediaType);
+    const sched = currentScheduledSubject();
+    const imageDataUrl = 'data:' + uploadedImage.mediaType + ';base64,' + uploadedImage.base64;
+    let compareHtml = '';
+
+    if (sched && sched.subject){
+      const isMatch = detected.replace(/\s/g,'') === String(sched.subject).replace(/\s/g,'');
+      const timeNote = sched.status === 'current' ? '現在のコマ（' + sched.label + '）'
+                      : sched.status === 'past'    ? '直近のコマ（' + sched.label + '）'
+                      : '次のコマ（' + sched.label + '）';
+      compareHtml = isMatch
+        ? '<div class="match">✓ ' + timeNote + 'の予定科目「' + escapeHtml(sched.subject) + '」と一致しています</div>'
+        : '<div class="mismatch">⚠ ' + timeNote + 'の予定科目は「' + escapeHtml(sched.subject) + '」です</div>';
+
+      // record the check-in so it shows next to the relevant slot in the timeline
+      const checkinKey = sched.dateKey + '_' + sched.slotIndex;
+      checkins[checkinKey] = {
+        subject: detected,
+        imageDataUrl: imageDataUrl,
+        match: isMatch
+      };
+      render();
+      // persist to this browser's localStorage so it survives a reload
+      try { localStorage.setItem(LS_KEY_CHECKINS, JSON.stringify(checkins)); } catch (e) { /* ignore */ }
+    } else {
+      compareHtml = '<div class="muted">本日の予定科目が見つからなかったため、照合は行えませんでした</div>';
+    }
+
+    resultBox.innerHTML =
+      '<span class="subj-detect">' + escapeHtml(detected) + '</span>' +
+      '<span class="muted">と判定しました</span>' + compareHtml;
+  } catch (err){
+    resultBox.innerHTML = '<span class="mismatch">判定エラー：' + escapeHtml(err.message) + '</span>';
+  } finally {
+    classifyBtn.disabled = false;
+    classifyBtn.textContent = 'この写真の科目を判定する';
+  }
+});
+
+fetchAndRender();
+setInterval(render, 1000);          // clock + slot highlight tick every second
+setInterval(fetchAndRender, 5*60*1000); // refetch sheet every 5 minutes
+</script>
+</body>
+</html>
